@@ -1,1 +1,4 @@
 assignment1/cs224d/stanfordSentimentTreebank/
+assignment1/.env/
+assignment1/cs224d/__MACOSX/
+.DS_Store
