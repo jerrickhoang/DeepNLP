@@ -53,6 +53,15 @@ Then $\frac{\partial \rho}{\partial \pmb{x}} = \frac{-1}{(1+e^{-\pmb{x}})^2} \fr
 Now, $\frac{\partial CE(y, \hat{y})}{\partial \theta_j} = - \sum_i y_i \frac{\partial}{\partial \theta_j} \log h(\theta)_i = - \sum_i \frac{y_i}{h(\theta)_i} \frac{\partial}{\partial \theta_j} h(\theta)_i = - \sum_{i\neq j} \frac{y_i}{h(\theta)_i}h(\theta)_ih(\theta)_j - (h(\theta)_j ( 1 - h(\theta)_j)) = - h(\theta)_j (\sum_{i\neq j} y_i + 1 - h(\theta)_j)$ 
 
 \item $\frac{\partial \hat{y}}{\partial x} = \frac{\partial \hat{y}}{\partial h} \frac{dh}{dx} = $
+
+\item $D_x * H + H * D_y$ weights 
+\end{enumerate}
+
+\item 
+\begin{enumerate}
+\item $CE = - \sum_i y_i log(\frac{\exp(\hat{r}^{\intercal}w_i)}{\sum_j exp(\hat{r}^{\intercal}w_j}))$. So, $\frac{\partial CE}{\partial \hat{r}} = -\sum_i y_i \frac{\partial}{\partial \hat{r}} \log \frac{e^{\hat{r}^{\intercal}w_i}}{\sum_j e^{\hat{r}^{\intercal}w_j}} = -\sum_i y_i(\frac{\partial}{\partial \hat{r}}\log e^{\hat{r}^{\intercal}w_i} - \frac{\partial}{\partial \hat{r}} log(\sum_j e^{\hat{r}^{\intercal}w_j})) = - \sum y_i (w_i - \frac{w_je^{\hat{r}^{\intercal}w_j}}{\sum_j e^{\hat{r}^{\intercal}w_j}}) = - \sum_i y_i (w_i - \sum_j w_j Pr(word_j | \hat{r}, w))$
+
+\item $CE = - \sum_i y_i log(\frac{\exp(\hat{r}^{\intercal}w_i)}{\sum_j exp(\hat{r}^{\intercal}w_j}))$. So, $\frac{\partial CE}{\partial w_k} = -\sum_i y_i \frac{\partial}{\partial w_k} \log \frac{e^{\hat{r}^{\intercal}w_i}}{\sum_j e^{\hat{r}^{\intercal}w_j}} = -\sum_i y_i(\frac{\partial}{\partial w_k}\log e^{\hat{r}^{\intercal}w_i} - \frac{\partial}{\partial w_k} log(\sum_j e^{\hat{r}^{\intercal}w_j})) = - \sum y_i (1_{k=i}\hat{r} - \frac{\hat{r}e^{\hat{r}^{\intercal}w_k}}{\sum_j e^{\hat{r}^{\intercal}w_j}}) = - \sum_i y_i \hat{r}(1_{k=i} - Pr(word_k | \hat{r}, w))$
 \end{enumerate}
 \end{enumerate}
 \end{document}
