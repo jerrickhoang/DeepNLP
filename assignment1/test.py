@@ -6,6 +6,10 @@ from cs224d.data_utils import *
 import matplotlib.pyplot as plt
 from scipy.special import expit
 
+#plt.rcParams['figure.figsize'] = (10.0, 8.0) # set default size of plots
+plt.rcParams['image.interpolation'] = 'nearest'
+plt.rcParams['image.cmap'] = 'gray'
+
 def softmax(x):
     """ Softmax function """
     ###################################################################
@@ -36,7 +40,7 @@ def sigmoid(x):
     # Compute the sigmoid function for the input here.                #
     ###################################################################
     MAX = 700
-    MIN = 10e-3
+    MIN = 10e-7
     x[x>MAX] = MAX
     res = expit(x)
     res[res<MIN] = MIN
@@ -177,17 +181,20 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, K=10):
     #W[mask] = MAX
     h = sigmoid(predicted.dot(outputVectors.T))
     neg_samples = [dataset.sampleTokenIdx() for _ in range(K)]
-    h_negs = h[neg_samples]
-    neg_logs = np.sum(np.log(h_negs))
-    cost = np.log(h[target]) - neg_logs
+    cost = np.log(h[target])
+    for x in neg_samples:
+      cost += np.log(h[x])
+    #h_negs = h[neg_samples]
+    #neg_logs = np.sum(np.log(-h_negs))
+    #cost = np.log(h[target]) + neg_logs
     
     #Gradients.
     gradPred = outputVectors[target] * (1 - h[target])
     grad = np.zeros(outputVectors.shape)
     grad[target] += predicted * (1 - h[target])
     for i in range(len(neg_samples)):
-        gradPred -= outputVectors[neg_samples[i]] * (1 - h_negs[i])
-        grad[neg_samples[i]] -= predicted * (1 - h_negs[i])
+        gradPred += outputVectors[neg_samples[i]] * (1 - h[neg_samples[i]])
+        grad[neg_samples[i]] += predicted * (1 - h[neg_samples[i]])
 
     ### END YOUR CODE
     #gradPred[mask] = 0
@@ -268,7 +275,7 @@ def normalizeRows(x):
 
 
 def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, word2vecCostAndGradient = softmaxCostAndGradient):
-    batchsize = 1
+    batchsize = 50
     cost = 0.0
     grad = np.zeros(wordVectors.shape)
     N = wordVectors.shape[0]
@@ -283,6 +290,38 @@ def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, word2ve
         
     return cost, grad
 
+# Interface to the dataset for negative sampling
+dataset = type('dummy', (), {})()
+def dummySampleTokenIdx():
+    return random.randint(0, 4)
+def getRandomContext(C):
+    tokens = ["a", "b", "c", "d", "e"]
+    return [tokens[random.randint(0,4)] for i in xrange(2*C+1)]
+dataset.sampleTokenIdx = dummySampleTokenIdx
+dataset.getRandomContext = getRandomContext
+#######################
+##Grad check purpose - should comment out when done
+dimensions = [5, 10]
+target = random.randint(0,dimensions[0]-1)
+params = np.random.randn(dimensions[0]*dimensions[1] + dimensions[1], )
+
+
+random.seed(31415)
+np.random.seed(9265)
+dummy_vectors = normalizeRows(np.random.randn(10,3))
+dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
+print "==== Gradient check for skip-gram ===="
+gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5), dummy_vectors)
+gradcheck_naive(lambda vec: word2vec_sgd_wrapper(skipgram, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient), dummy_vectors)
+print "\n==== Gradient check for CBOW      ===="
+gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5), dummy_vectors)
+gradcheck_naive(lambda vec: word2vec_sgd_wrapper(cbow, dummy_tokens, vec, dataset, 5, negSamplingCostAndGradient), dummy_vectors)
+
+print "\n=== For autograder ==="
+print skipgram("c", 3, ["a", "b", "e", "d", "b", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
+print skipgram("c", 1, ["a", "b"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], negSamplingCostAndGradient)
+print cbow("a", 2, ["a", "b", "c", "a"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:])
+print cbow("a", 2, ["a", "b", "a", "c"], dummy_tokens, dummy_vectors[:5,:], dummy_vectors[5:,:], negSamplingCostAndGradient)
 
 # Save parameters every a few SGD iterations as fail-safe
 SAVE_PARAMS_EVERY = 10000
@@ -306,6 +345,7 @@ def load_saved_params():
 def save_params(iter, params):
     np.save("saved_params_%d.npy" % iter, params)
 
+
 def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False):
     """ Stochastic Gradient Descent """
     ###################################################################
@@ -327,6 +367,7 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False):
     
     # Anneal learning rate every several iterations
     ANNEAL_EVERY = 50000
+    loss_history = []
     
     if useSaved:
         start_iter, oldx = load_saved_params()
@@ -340,14 +381,21 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False):
         postprocessing = lambda x: x
     
     expcost = None
+    # FOR RMS PROP
+    decay_rate = 0.99
+    momentum = 0.9
+    rmsgrad_cache = 0
+    rmsstep_cache = 0
     for iter in xrange(start_iter + 1, iterations + 1):
         ### YOUR CODE HERE
         ### Don't forget to apply the postprocessing after every iteration!
         ### You might want to print the progress every few iterations.
         cost, grad = f(x)
-        x -=  step * grad
+        rmsstep_cache = rmsstep_cache * momentum - step * grad 
+        x +=  rmsstep_cache
         #gradcheck_naive(f, x)
-        if iter % 100 == 0:
+        loss_history.append(cost)
+        if iter % 1000 == 0:
             print cost
         postprocessing(x)
         ### END YOUR CODE
@@ -355,10 +403,10 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False):
         if iter % SAVE_PARAMS_EVERY == 0 and useSaved:
             save_params(iter, x)
             
-        if iter % ANNEAL_EVERY == 0:
-            step *= 0.5
+        #if iter % ANNEAL_EVERY == 0:
+        #    step *= 0.5
     
-    return x
+    return x, loss_history
 
 
 dataset = StanfordSentiment()
@@ -377,7 +425,7 @@ C = 5
 random.seed(31415)
 np.random.seed(9265)
 wordVectors = normalizeRows(np.random.randn(nWords * 2, dimVectors))
-wordVectors0 = sgd(lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, negSamplingCostAndGradient), wordVectors, 50.0, 1000, normalizeRows, False)
+wordVectors0, loss_history = sgd(lambda vec: word2vec_sgd_wrapper(skipgram, tokens, vec, dataset, C, negSamplingCostAndGradient), wordVectors, 50.0, 10000, normalizeRows, True)
 
 # just use the output vectors
 wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:]) / 2.0
@@ -387,3 +435,31 @@ checkWords = ["the", "a", "an", "movie", "ordinary", "but", "and"]
 checkIdx = [tokens[word] for word in checkWords]
 checkVecs = wordVectors[checkIdx, :]
 print checkVecs
+#Visualize the word vectors you trained
+
+_, wordVectors0 = load_saved_params()
+wordVectors = (wordVectors0[:nWords,:] + wordVectors0[nWords:,:]) / 2.0
+visualizeWords = ["the", "a", "an", ",", ".", "?", "!", "``", "''", "--", "good", "great", "cool", "brilliant", "wonderful", "well", "amazing", "worth", "sweet", "warm", "enjoyable", "boring", "bad", "garbage", "waste", "disaster", "dumb", "embarrassment", "annoying", "disgusting"]
+visualizeIdx = [tokens[word] for word in visualizeWords]
+visualizeVecs = wordVectors[visualizeIdx, :]
+covariance = visualizeVecs.T.dot(visualizeVecs)
+U,S,V = np.linalg.svd(covariance)
+coord = (visualizeVecs - np.mean(visualizeVecs, axis=0)).dot(U[:,0:2]) 
+
+for i in xrange(len(visualizeWords)):
+    plt.text(coord[i,0], coord[i,1], visualizeWords[i], bbox=dict(facecolor='green', alpha=0.1))
+    
+#plt.xlim((np.min(coord[:,0]), np.max(coord[:,0])))
+#plt.ylim((np.min(coord[:,1]), np.max(coord[:,1])))
+#plt.show()
+
+np.savetxt('costs.txt', loss_history, fmt='%f')
+
+plt.subplot(2, 1, 1)
+plt.plot(loss_history)
+plt.title('Loss history')
+plt.xlabel('Iteration')
+plt.ylabel('Loss')
+
+plt.show()
+
