@@ -86,15 +86,15 @@ def sgd(f, x0, step, iterations, postprocessing = None, useSaved = False):
 # Implement a function that normalizes each row of a matrix to have unit length
 def normalizeRows(x):
     """ Row normalization function """    
-    #return (x.T / np.linalg.norm(x, axis=1)).T
-    x2 = x*x
-    if len(np.shape(x)) <= 1:
-	return np.sqrt(x2/np.sum(x2))
-    return np.sqrt(x2/(np.sum(x2,axis=1)[:, np.newaxis]))
+    return (x.T / np.linalg.norm(x, axis=1)).T
+    #x2 = x*x
+    #if len(np.shape(x)) <= 1:
+	#return np.sqrt(x2/np.sum(x2))
+    #return np.sqrt(x2/(np.sum(x2,axis=1)[:, np.newaxis]))
 
 
 def word2vec_sgd_wrapper(word2vecModel, tokens, wordVectors, dataset, C, word2vecCostAndGradient = softmaxCostAndGradient):
-    batchsize = 20
+    batchsize = 1
     cost = 0.0
     grad = np.zeros(wordVectors.shape)
     N = wordVectors.shape[0]

@@ -25,6 +25,7 @@ def sigmoid(x):
     MAX = 700
     MIN = 10e-7
     x[x>MAX] = MAX
+    x[x<-MAX] = -MAX
     res = expit(x)
     res[res<MIN] = MIN
     res[res>1-MIN] = 1-MIN

@@ -73,18 +73,18 @@ def negSamplingCostAndGradient(predicted, target, outputVectors, K=10):
     h = sigmoid(W)
     h_negs = sigmoid(-W)
     neg_samples = [dataset.sampleTokenIdx() for _ in range(K)]
-    cost = np.log(h[target])
-    cost += np.sum(np.log(h_negs[neg_samples]))
+    cost = -np.log(h[target])
+    cost -= np.sum(np.log(1 - h[neg_samples]))
     
     #Gradients.
     gradPred = outputVectors[target] * (1 - h[target])
     grad = np.zeros(outputVectors.shape)
     grad[target] += predicted * (1 - h[target])
     for i in range(len(neg_samples)):
-        gradPred -= outputVectors[neg_samples[i]] * (1 - h_negs[neg_samples[i]])
-        grad[neg_samples[i]] -= predicted * (1 - h_negs[neg_samples[i]])
+        gradPred -= outputVectors[neg_samples[i]] * (h[neg_samples[i]])
+        grad[neg_samples[i]] -= predicted * (h[neg_samples[i]])
 
-    return -cost, -gradPred, -grad
+    return cost, -gradPred, -grad
 
 
 def negSamplingCostAndGradientDebug(target, params):
